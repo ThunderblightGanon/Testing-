@@ -3,335 +3,83 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bloomberg AI Dashboard (Local)</title>
-  <style>
-    :root {
-      --color-bg-primary: #0a0e27;
-      --color-bg-secondary: #1a1f3a;
-      --color-surface: #252d47;
-      --color-text-primary: #ffffff;
-      --color-text-secondary: #a0aec0;
-      --color-primary: #00a8e8;
-      --color-success: #22c55e;
-      --color-error: #ff6b6b;
-      --color-border: rgba(255, 255, 255, 0.1);
-      --space-8: 8px;
-      --space-12: 12px;
-      --space-16: 16px;
-      --space-24: 24px;
-      --radius-base: 6px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background-color: var(--color-bg-primary);
-      color: var(--color-text-primary);
-    }
-
-    .app-container {
-      display: flex;
-      height: 100vh;
-    }
-
-    .sidebar {
-      width: 200px;
-      background-color: var(--color-bg-secondary);
-      border-right: 1px solid var(--color-border);
-      padding: var(--space-16);
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
-
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--color-primary);
-      margin-bottom: var(--space-24);
-      letter-spacing: 1px;
-    }
-
-    .nav-section {
-      margin-bottom: var(--space-24);
-    }
-
-    .nav-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: var(--color-text-secondary);
-      font-weight: 600;
-      margin-bottom: var(--space-12);
-      letter-spacing: 0.5px;
-    }
-
-    .nav-item {
-      padding: var(--space-12) var(--space-8);
-      margin-bottom: var(--space-8);
-      border-radius: var(--radius-base);
-      cursor: pointer;
-      font-size: 13px;
-      transition: all 0.2s ease;
-      border-left: 3px solid transparent;
-    }
-
-    .nav-item.active {
-      background-color: rgba(0, 168, 232, 0.15);
-      color: var(--color-primary);
-      border-left-color: var(--color-primary);
-    }
-
-    .main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .header {
-      background-color: var(--color-bg-secondary);
-      border-bottom: 1px solid var(--color-border);
-      padding: var(--space-16) var(--space-24);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .header h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    .content {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 2fr 1.5fr;
-      gap: var(--space-16);
-      padding: var(--space-24);
-      overflow-y: auto;
-    }
-
-    .panel {
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-base);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .panel-header {
-      padding: var(--space-16);
-      border-bottom: 1px solid var(--color-border);
-      background-color: rgba(0, 0, 0, 0.2);
-    }
-
-    .panel-header h2 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .panel-body {
-      padding: var(--space-16);
-      flex: 1;
-      overflow-y: auto;
-    }
-
-    .input-group {
-      display: flex;
-      gap: var(--space-8);
-      margin-bottom: var(--space-16);
-    }
-
-    .input {
-      flex: 1;
-      background-color: var(--color-bg-primary);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-base);
-      padding: var(--space-8) var(--space-12);
-      color: var(--color-text-primary);
-      font-size: 13px;
-    }
-
-    .btn {
-      background-color: var(--color-primary);
-      color: var(--color-bg-primary);
-      border: none;
-      padding: var(--space-8) var(--space-16);
-      border-radius: var(--radius-base);
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .btn-danger {
-      background-color: transparent;
-      color: var(--color-error);
-      border: 1px solid var(--color-error);
-      padding: 4px 8px;
-      font-size: 11px;
-    }
-
-    .ticker-card {
-      padding: var(--space-12);
-      margin-bottom: var(--space-12);
-      background-color: rgba(0, 0, 0, 0.3);
-      border-radius: var(--radius-base);
-      border: 1px solid var(--color-border);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .ticker-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: var(--space-8);
-    }
-
-    .ticker-symbol {
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    .ticker-price {
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .ticker-price.up {
-      color: var(--color-success);
-    }
-
-    .ticker-price.down {
-      color: var(--color-error);
-    }
-
-    .ticker-change {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-    }
-
-    .change-value.up {
-      color: var(--color-success);
-    }
-
-    .change-value.down {
-      color: var(--color-error);
-    }
-
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 200px;
-      color: var(--color-text-secondary);
-      text-align: center;
-    }
-
-    .empty-state-icon {
-      font-size: 32px;
-      margin-bottom: var(--space-12);
-      opacity: 0.5;
-    }
-
-    .ai-summary-title {
-      font-size: 12px;
-      text-transform: uppercase;
-      color: var(--color-text-secondary);
-      margin-bottom: 6px;
-      letter-spacing: 0.5px;
-    }
-
-    .ai-summary-text {
-      font-size: 13px;
-      color: var(--color-text-primary);
-      line-height: 1.5;
-      white-space: pre-wrap;
-    }
-
-    .ai-summary-loading {
-      font-size: 12px;
-      color: var(--color-text-secondary);
-      font-style: italic;
-    }
-
-    .meta-row {
-      font-size: 12px;
-      color: var(--color-text-secondary);
-      margin-bottom: 4px;
-    }
-
-    .price-line {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-
-    .price-line span {
-      font-size: 13px;
-      margin-left: 6px;
-    }
-  </style>
+  <title>Stock Tracker (Alpha Vantage)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div class="app-container">
-    <div class="sidebar">
-      <div class="logo">BBG AI (Local)</div>
-      <div class="nav-section">
-        <div class="nav-title">Markets</div>
-        <div class="nav-item active">📊 Watchlist</div>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white shadow-xl rounded-2xl p-6 w-full max-w-md">
+    <h1 class="text-2xl font-bold mb-4 text-center">📈 Stock Tracker</h1>
+
+    <div class="flex gap-2 mb-4">
+      <input id="symbolInput" type="text" placeholder="Enter stock symbol (e.g. AAPL)"
+        class="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring" />
+      <button onclick="getStock()"
+        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Track</button>
+    </div>
+
+    <div id="result" class="hidden">
+      <div class="border-t pt-4">
+        <p class="text-lg font-semibold" id="stockName"></p>
+        <p>Price: <span class="font-medium" id="price"></span></p>
+        <p>Change: <span class="font-medium" id="change"></span></p>
+        <p>Change %: <span class="font-medium" id="changePercent"></span></p>
+        <p class="text-sm text-gray-500 mt-2" id="lastUpdated"></p>
       </div>
     </div>
-    <div class="main-content">
-      <div class="header">
-        <h1>Markets Overview</h1>
-      </div>
-      <div class="content">
-        <div class="panel">
-          <div class="panel-header">
-            <h2>Watchlist</h2>
-          </div>
-          <div class="panel-body">
-            <div class="input-group">
-              <input
-                type="text"
-                class="input"
-                id="symbolInput"
-                placeholder="Add ticker (e.g., AAPL)"
-              />
-              <button class="btn" id="addButton">Add</button>
-            </div>
-            <div id="watchlist"></div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-header">
-            <h2>Stock Details & AI Summary</h2>
-          </div>
-          <div class="panel-body" id="detailsPanel">
-            <div style="font-size:13px; color:var(--color-text-secondary); margin-bottom:8px;">
-              Select a stock from the watchlist to see details and an AI summary.
-            </div>
-            <div id="detailsContent"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+
+    <p id="error" class="text-red-600 mt-4 hidden"></p>
   </div>
 
-  <script src="app.js"></script>
+  <script>
+    const API_KEY = "7A48DHS27SKTE670";
+
+    async function getStock() {
+      const symbol = document.getElementById("symbolInput").value.trim().toUpperCase();
+      const resultDiv = document.getElementById("result");
+      const errorDiv = document.getElementById("error");
+
+      resultDiv.classList.add("hidden");
+      errorDiv.classList.add("hidden");
+
+      if (!symbol) {
+        errorDiv.textContent = "Please enter a stock symbol.";
+        errorDiv.classList.remove("hidden");
+        return;
+      }
+
+      try {
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data["Global Quote"] || Object.keys(data["Global Quote"]).length === 0) {
+          throw new Error("Invalid symbol or API limit reached");
+        }
+
+        const quote = data["Global Quote"];
+
+        document.getElementById("stockName").textContent = symbol;
+        document.getElementById("price").textContent = `$${parseFloat(quote["05. price"]).toFixed(2)}`;
+
+        const change = parseFloat(quote["09. change"]);
+        const changePercent = quote["10. change percent"];
+
+        const changeEl = document.getElementById("change");
+        changeEl.textContent = change.toFixed(2);
+        changeEl.className = change >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium";
+
+        const changePercentEl = document.getElementById("changePercent");
+        changePercentEl.textContent = changePercent;
+        changePercentEl.className = change >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium";
+
+        document.getElementById("lastUpdated").textContent = `Last trading day: ${quote["07. latest trading day"]}`;
+
+        resultDiv.classList.remove("hidden");
+      } catch (err) {
+        errorDiv.textContent = err.message;
+        errorDiv.classList.remove("hidden");
+      }
+    }
+  </script>
 </body>
 </html>
