@@ -29,7 +29,10 @@
     <ul id="watchlist" class="space-y-2"></ul>
 
     <h3 class="font-semibold">💼 Portfolio</h3>
-    <button onclick="addToPortfolio()" class="w-full bg-green-600 text-white py-2 rounded-lg">Add Position</button>
+    <div class="flex gap-2">
+      <button onclick="addToPortfolio()" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Add Position</button>
+      <button onclick="clearPortfolio()" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Clear</button>
+    </div>
     <ul id="portfolio" class="space-y-2"></ul>
   </div>
 
@@ -94,11 +97,34 @@ function addToPortfolio(){
   const p = getLS('portfolio');
   p.push({symbol:currentSymbol, qty:+qty, price:+price});
   setLS('portfolio', p); renderPortfolio();
+
+function removePortfolio(i){
+  const p = getLS('portfolio');
+  p.splice(i,1);
+  setLS('portfolio',p);
+  renderPortfolio();
+}
+
+function clearPortfolio(){
+  if(!confirm('Clear entire portfolio?')) return;
+  localStorage.removeItem('portfolio');
+  renderPortfolio();
+}
 }
 function renderPortfolio(){
   const ul = document.getElementById('portfolio'); ul.innerHTML='';
-  getLS('portfolio').forEach(pos=>{
-    ul.innerHTML += `<li class="bg-gray-100 p-2 rounded">${pos.symbol} | ${pos.qty} @ $${pos.price}</li>`;
+  const data = getLS('portfolio');
+  if(data.length === 0){
+    ul.innerHTML = '<li class="text-gray-500">No positions</li>';
+    return;
+  }
+  data.forEach((pos,i)=>{
+    ul.innerHTML += `<li class="bg-gray-100 p-2 rounded flex justify-between items-center">
+      <span>${pos.symbol} | ${pos.qty} @ $${pos.price}</span>
+      <button onclick="removePortfolio(${i})" class="text-red-600">✕</button>
+    </li>`;
+  });
+} | ${pos.qty} @ $${pos.price}</li>`;
   });
 }
 
@@ -114,7 +140,10 @@ async function loadStock(sym){
 
   try{
     const now = Math.floor(Date.now()/1000);
-    const from = now - 60*60*24*30;
+    // Finnhub requires shorter ranges for intraday data
+    const from = resolution === 'D' 
+      ? now - 60 * 60 * 24 * 30 
+      : now - 60 * 60 * 24 * 5;
 
     const [q,c,n,s] = await Promise.all([
       fetch(`https://finnhub.io/api/v1/quote?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json()),
@@ -139,9 +168,35 @@ async function loadStock(sym){
 
 // ---------- CHART ----------
 function drawChart(d){
-  if(d.s!=='ok') return;
+  if(!d || d.s !== 'ok'){
+    console.warn('No chart data returned', d);
+    return;
+  }
+
+  const labels = d.t.map(t => new Date(t * 1000).toLocaleDateString());
+  const prices = d.c;
+
   if(chart) chart.destroy();
-  chart=new Chart(priceChart,{type:'line',data:{labels:d.t.map(t=>new Date(t*1000).toLocaleDateString()),datasets:[{data:d.c,tension:.3}]},options:{plugins:{legend:{display:false}}}});
+
+  chart = new Chart(priceChart, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: prices,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: true },
+        y: { display: true }
+      }
+    }
+  });
+}]},options:{plugins:{legend:{display:false}}}});
 }
 
 // ---------- NEWS ----------
