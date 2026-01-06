@@ -1,530 +1,337 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bloomberg Finance Dashboard</title>
-    <style>
-        :root {
-            --color-bg-primary: #0a0e27;
-            --color-bg-secondary: #1a1f3a;
-            --color-surface: #252d47;
-            --color-text-primary: #ffffff;
-            --color-text-secondary: #a0aec0;
-            --color-primary: #00a8e8;
-            --color-success: #22c55e;
-            --color-error: #ff6b6b;
-            --color-warning: #fbbf24;
-            --color-border: rgba(255, 255, 255, 0.1);
-            --space-8: 8px;
-            --space-12: 12px;
-            --space-16: 16px;
-            --space-24: 24px;
-            --space-32: 32px;
-            --radius-base: 6px;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background-color: var(--color-bg-primary);
-            color: var(--color-text-primary);
-        }
-
-        .app-container {
-            display: flex;
-            height: 100vh;
-        }
-
-        .sidebar {
-            width: 200px;
-            background-color: var(--color-bg-secondary);
-            border-right: 1px solid var(--color-border);
-            padding: var(--space-16);
-            overflow-y: auto;
-            flex-shrink: 0;
-        }
-
-        .logo {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--color-primary);
-            margin-bottom: var(--space-24);
-            letter-spacing: 1px;
-        }
-
-        .nav-section {
-            margin-bottom: var(--space-24);
-        }
-
-        .nav-title {
-            font-size: 11px;
-            text-transform: uppercase;
-            color: var(--color-text-secondary);
-            font-weight: 600;
-            margin-bottom: var(--space-12);
-            letter-spacing: 0.5px;
-        }
-
-        .nav-item {
-            padding: var(--space-12) var(--space-8);
-            margin-bottom: var(--space-8);
-            border-radius: var(--radius-base);
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s ease;
-            border-left: 3px solid transparent;
-        }
-
-        .nav-item:hover {
-            background-color: rgba(0, 168, 232, 0.1);
-            border-left-color: var(--color-primary);
-        }
-
-        .nav-item.active {
-            background-color: rgba(0, 168, 232, 0.15);
-            color: var(--color-primary);
-            border-left-color: var(--color-primary);
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .header {
-            background-color: var(--color-bg-secondary);
-            border-bottom: 1px solid var(--color-border);
-            padding: var(--space-16) var(--space-24);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .search-bar {
-            flex: 0 0 300px;
-            background-color: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-base);
-            padding: var(--space-8) var(--space-12);
-            color: var(--color-text-primary);
-            font-size: 13px;
-        }
-
-        .search-bar::placeholder {
-            color: var(--color-text-secondary);
-        }
-
-        .search-bar:focus {
-            outline: none;
-            border-color: var(--color-primary);
-            box-shadow: 0 0 0 3px rgba(0, 168, 232, 0.1);
-        }
-
-        .content {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-16);
-            padding: var(--space-24);
-            overflow-y: auto;
-        }
-
-        .panel {
-            background-color: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-base);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .panel-header {
-            padding: var(--space-16);
-            border-bottom: 1px solid var(--color-border);
-            background-color: rgba(0, 0, 0, 0.2);
-        }
-
-        .panel-header h2 {
-            margin: 0;
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .panel-body {
-            padding: var(--space-16);
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .ticker-card {
-            padding: var(--space-12);
-            margin-bottom: var(--space-12);
-            background-color: rgba(0, 0, 0, 0.3);
-            border-radius: var(--radius-base);
-            border: 1px solid var(--color-border);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .ticker-card:hover {
-            background-color: rgba(0, 168, 232, 0.1);
-            border-color: var(--color-primary);
-        }
-
-        .ticker-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: var(--space-8);
-        }
-
-        .ticker-symbol {
-            font-weight: 700;
-            font-size: 14px;
-            color: var(--color-text-primary);
-        }
-
-        .ticker-price {
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .ticker-price.up {
-            color: var(--color-success);
-        }
-
-        .ticker-price.down {
-            color: var(--color-error);
-        }
-
-        .ticker-change {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-        }
-
-        .change-value {
-            font-weight: 500;
-        }
-
-        .change-value.up {
-            color: var(--color-success);
-        }
-
-        .change-value.down {
-            color: var(--color-error);
-        }
-
-        .change-percent {
-            color: var(--color-text-secondary);
-        }
-
-        .news-item {
-            padding: var(--space-12);
-            margin-bottom: var(--space-12);
-            border-left: 3px solid var(--color-primary);
-            background-color: rgba(0, 168, 232, 0.05);
-            border-radius: var(--radius-base);
-        }
-
-        .news-title {
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: var(--space-8);
-            line-height: 1.4;
-        }
-
-        .news-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            color: var(--color-text-secondary);
-        }
-
-        .news-ticker {
-            display: inline-block;
-            background-color: var(--color-primary);
-            color: var(--color-bg-primary);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-weight: 600;
-            margin-right: var(--space-8);
-        }
-
-        .market-overview {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-12);
-            margin-bottom: var(--space-12);
-        }
-
-        .metric-box {
-            background-color: rgba(0, 0, 0, 0.3);
-            padding: var(--space-12);
-            border-radius: var(--radius-base);
-            border: 1px solid var(--color-border);
-        }
-
-        .metric-label {
-            font-size: 11px;
-            color: var(--color-text-secondary);
-            text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: var(--space-4);
-            letter-spacing: 0.5px;
-        }
-
-        .metric-value {
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .metric-change {
-            font-size: 12px;
-            margin-top: var(--space-4);
-        }
-
-        .metric-change.up {
-            color: var(--color-success);
-        }
-
-        .metric-change.down {
-            color: var(--color-error);
-        }
-
-        .sector-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-8);
-        }
-
-        .sector-item {
-            padding: var(--space-12);
-            background-color: rgba(0, 0, 0, 0.3);
-            border-radius: var(--radius-base);
-            border: 1px solid var(--color-border);
-            text-align: center;
-        }
-
-        .sector-name {
-            font-size: 12px;
-            color: var(--color-text-secondary);
-            margin-bottom: var(--space-4);
-        }
-
-        .sector-change {
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .sector-change.up {
-            color: var(--color-success);
-        }
-
-        .sector-change.down {
-            color: var(--color-error);
-        }
-
-        .input-group {
-            display: flex;
-            gap: var(--space-8);
-            margin-bottom: var(--space-16);
-        }
-
-        .input {
-            flex: 1;
-            background-color: var(--color-bg-primary);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-base);
-            padding: var(--space-8) var(--space-12);
-            color: var(--color-text-primary);
-            font-size: 13px;
-        }
-
-        .input::placeholder {
-            color: var(--color-text-secondary);
-        }
-
-        .input:focus {
-            outline: none;
-            border-color: var(--color-primary);
-            box-shadow: 0 0 0 2px rgba(0, 168, 232, 0.1);
-        }
-
-        .btn {
-            background-color: var(--color-primary);
-            color: var(--color-bg-primary);
-            border: none;
-            padding: var(--space-8) var(--space-16);
-            border-radius: var(--radius-base);
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .btn:hover {
-            background-color: #0096c7;
-        }
-
-        .btn-danger {
-            background-color: transparent;
-            color: var(--color-error);
-            border: 1px solid var(--color-error);
-            padding: 4px 8px;
-            font-size: 11px;
-        }
-
-        .btn-danger:hover {
-            background-color: rgba(255, 107, 107, 0.1);
-        }
-
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 200px;
-            color: var(--color-text-secondary);
-            text-align: center;
-        }
-
-        .empty-state-icon {
-            font-size: 32px;
-            margin-bottom: var(--space-12);
-            opacity: 0.5;
-        }
-
-        .sparkline {
-            width: 80px;
-            height: 24px;
-        }
-
-        .ticker-right {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .alert-row {
-            background-color: rgba(251, 191, 36, 0.08);
-            border-color: rgba(251, 191, 36, 0.5);
-        }
-
-        .alert-badge {
-            font-size: 10px;
-            text-transform: uppercase;
-            padding: 2px 6px;
-            border-radius: 999px;
-            background-color: rgba(251, 191, 36, 0.2);
-            color: var(--color-warning);
-            font-weight: 600;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bloomberg AI Dashboard (Local)</title>
+  <style>
+    :root {
+      --color-bg-primary: #0a0e27;
+      --color-bg-secondary: #1a1f3a;
+      --color-surface: #252d47;
+      --color-text-primary: #ffffff;
+      --color-text-secondary: #a0aec0;
+      --color-primary: #00a8e8;
+      --color-success: #22c55e;
+      --color-error: #ff6b6b;
+      --color-border: rgba(255, 255, 255, 0.1);
+      --space-8: 8px;
+      --space-12: 12px;
+      --space-16: 16px;
+      --space-24: 24px;
+      --radius-base: 6px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: var(--color-bg-primary);
+      color: var(--color-text-primary);
+    }
+
+    .app-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 200px;
+      background-color: var(--color-bg-secondary);
+      border-right: 1px solid var(--color-border);
+      padding: var(--space-16);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: var(--space-24);
+      letter-spacing: 1px;
+    }
+
+    .nav-section {
+      margin-bottom: var(--space-24);
+    }
+
+    .nav-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--color-text-secondary);
+      font-weight: 600;
+      margin-bottom: var(--space-12);
+      letter-spacing: 0.5px;
+    }
+
+    .nav-item {
+      padding: var(--space-12) var(--space-8);
+      margin-bottom: var(--space-8);
+      border-radius: var(--radius-base);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      border-left: 3px solid transparent;
+    }
+
+    .nav-item.active {
+      background-color: rgba(0, 168, 232, 0.15);
+      color: var(--color-primary);
+      border-left-color: var(--color-primary);
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      background-color: var(--color-bg-secondary);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-16) var(--space-24);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .content {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 2fr 1.5fr;
+      gap: var(--space-16);
+      padding: var(--space-24);
+      overflow-y: auto;
+    }
+
+    .panel {
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-base);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: var(--space-16);
+      border-bottom: 1px solid var(--color-border);
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .panel-body {
+      padding: var(--space-16);
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .input-group {
+      display: flex;
+      gap: var(--space-8);
+      margin-bottom: var(--space-16);
+    }
+
+    .input {
+      flex: 1;
+      background-color: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-base);
+      padding: var(--space-8) var(--space-12);
+      color: var(--color-text-primary);
+      font-size: 13px;
+    }
+
+    .btn {
+      background-color: var(--color-primary);
+      color: var(--color-bg-primary);
+      border: none;
+      padding: var(--space-8) var(--space-16);
+      border-radius: var(--radius-base);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-danger {
+      background-color: transparent;
+      color: var(--color-error);
+      border: 1px solid var(--color-error);
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .ticker-card {
+      padding: var(--space-12);
+      margin-bottom: var(--space-12);
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: var(--radius-base);
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .ticker-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: var(--space-8);
+    }
+
+    .ticker-symbol {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .ticker-price {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .ticker-price.up {
+      color: var(--color-success);
+    }
+
+    .ticker-price.down {
+      color: var(--color-error);
+    }
+
+    .ticker-change {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .change-value.up {
+      color: var(--color-success);
+    }
+
+    .change-value.down {
+      color: var(--color-error);
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--color-text-secondary);
+      text-align: center;
+    }
+
+    .empty-state-icon {
+      font-size: 32px;
+      margin-bottom: var(--space-12);
+      opacity: 0.5;
+    }
+
+    .ai-summary-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .ai-summary-text {
+      font-size: 13px;
+      color: var(--color-text-primary);
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .ai-summary-loading {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      font-style: italic;
+    }
+
+    .meta-row {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .price-line {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .price-line span {
+      font-size: 13px;
+      margin-left: 6px;
+    }
+  </style>
 </head>
 <body>
-    <div class="app-container">
-        <div class="sidebar">
-            <div class="logo">BBGTERMINAL</div>
-            <div class="nav-section">
-                <div class="nav-title">Markets</div>
-                <div class="nav-item active" data-view="watchlist">📊 Watchlist</div>
-                <div class="nav-item" data-view="news">📰 News Feed</div>
-                <div class="nav-item" data-view="sectors">🏢 Sectors</div>
-            </div>
-            <div class="nav-section">
-                <div class="nav-title">Tools</div>
-                <div class="nav-item" data-view="screener">🔍 Screener</div>
-                <div class="nav-item" data-view="alerts">🔔 Alerts</div>
-            </div>
-        </div>
-
-        <div class="main-content">
-            <div class="header">
-                <h1 id="headerTitle">Markets Overview</h1>
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search stocks, news...">
-            </div>
-
-            <div class="content" id="contentArea">
-                <div class="panel" id="panel-watchlist">
-                    <div class="panel-header">
-                        <h2>Market Indices</h2>
-                    </div>
-                    <div class="panel-body">
-                        <div id="indicesList"></div>
-                    </div>
-                </div>
-
-                <div class="panel" id="panel-stocks">
-                    <div class="panel-header">
-                        <h2>Top Movers</h2>
-                    </div>
-                    <div class="panel-body">
-                        <div class="input-group">
-                            <input type="text" class="input" id="symbolInput" placeholder="Add ticker (e.g., AAPL)">
-                            <button class="btn" id="addButton">Add</button>
-                        </div>
-                        <div id="watchlist"></div>
-                    </div>
-                </div>
-
-                <div class="panel" id="panel-news">
-                    <div class="panel-header">
-                        <h2>Breaking News</h2>
-                    </div>
-                    <div class="panel-body" id="newsFeed"></div>
-                </div>
-
-                <div class="panel" id="panel-overview">
-                    <div class="panel-header">
-                        <h2>Market Statistics</h2>
-                    </div>
-                    <div class="panel-body">
-                        <div class="market-overview" id="marketStats"></div>
-                    </div>
-                </div>
-
-                <div class="panel" id="panel-sectors">
-                    <div class="panel-header">
-                        <h2>Sector Performance</h2>
-                    </div>
-                    <div class="panel-body">
-                        <div class="sector-grid" id="sectorsList"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel" id="panel-details" style="display:none; position:absolute; top:80px; right:24px; width:340px; max-height:80vh; z-index:10;">
-                <div class="panel-header">
-                    <h2 id="detailsTitle">Stock Details</h2>
-                </div>
-                <div class="panel-body" id="detailsBody">
-                    <div style="font-size:13px; color:var(--color-text-secondary); margin-bottom:8px;">
-                        Click a stock in the watchlist to view details.
-                    </div>
-                </div>
-            </div>
-        </div>
+  <div class="app-container">
+    <div class="sidebar">
+      <div class="logo">BBG AI (Local)</div>
+      <div class="nav-section">
+        <div class="nav-title">Markets</div>
+        <div class="nav-item active">📊 Watchlist</div>
+      </div>
     </div>
+    <div class="main-content">
+      <div class="header">
+        <h1>Markets Overview</h1>
+      </div>
+      <div class="content">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Watchlist</h2>
+          </div>
+          <div class="panel-body">
+            <div class="input-group">
+              <input
+                type="text"
+                class="input"
+                id="symbolInput"
+                placeholder="Add ticker (e.g., AAPL)"
+              />
+              <button class="btn" id="addButton">Add</button>
+            </div>
+            <div id="watchlist"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Stock Details & AI Summary</h2>
+          </div>
+          <div class="panel-body" id="detailsPanel">
+            <div style="font-size:13px; color:var(--color-text-secondary); margin-bottom:8px;">
+              Select a stock from the watchlist to see details and an AI summary.
+            </div>
+            <div id="detailsContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
