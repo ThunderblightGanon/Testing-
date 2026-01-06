@@ -3,83 +3,178 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stock Tracker (Alpha Vantage)</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-  <div class="bg-white shadow-xl rounded-2xl p-6 w-full max-w-md">
-    <h1 class="text-2xl font-bold mb-4 text-center">📈 Stock Tracker</h1>
+  <title>Advanced Stock Tracker</title>
 
-    <div class="flex gap-2 mb-4">
-      <input id="symbolInput" type="text" placeholder="Enter stock symbol (e.g. AAPL)"
-        class="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring" />
-      <button onclick="getStock()"
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Track</button>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+
+  <div class="max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
+
+    <!-- LEFT: SEARCH & WATCHLIST -->
+    <div class="bg-white rounded-2xl shadow p-4">
+      <h2 class="text-xl font-bold mb-3">🔍 Stock Search</h2>
+      <input id="symbolInput" type="text" placeholder="AAPL"
+        class="w-full border rounded-lg px-3 py-2 mb-2" />
+      <button onclick="loadStock()"
+        class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Search</button>
+
+      <h3 class="font-semibold mt-6 mb-2">⭐ Watchlist</h3>
+      <ul id="watchlist" class="space-y-2"></ul>
     </div>
 
-    <div id="result" class="hidden">
-      <div class="border-t pt-4">
-        <p class="text-lg font-semibold" id="stockName"></p>
-        <p>Price: <span class="font-medium" id="price"></span></p>
-        <p>Change: <span class="font-medium" id="change"></span></p>
-        <p>Change %: <span class="font-medium" id="changePercent"></span></p>
-        <p class="text-sm text-gray-500 mt-2" id="lastUpdated"></p>
+    <!-- RIGHT: STOCK INFO -->
+    <div class="md:col-span-2 bg-white rounded-2xl shadow p-4">
+      <div id="error" class="text-red-600 hidden"></div>
+
+      <div id="stockSection" class="hidden">
+        <div class="flex justify-between items-center mb-4">
+          <h1 id="stockTitle" class="text-2xl font-bold"></h1>
+          <button onclick="addToWatchlist()"
+            class="bg-green-600 text-white px-3 py-1 rounded-lg">+ Watch</button>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="p-3 bg-gray-50 rounded">
+            <p class="text-sm text-gray-500">Price</p>
+            <p id="price" class="font-semibold"></p>
+          </div>
+          <div class="p-3 bg-gray-50 rounded">
+            <p class="text-sm text-gray-500">Change</p>
+            <p id="change"></p>
+          </div>
+          <div class="p-3 bg-gray-50 rounded">
+            <p class="text-sm text-gray-500">Volume</p>
+            <p id="volume"></p>
+          </div>
+          <div class="p-3 bg-gray-50 rounded">
+            <p class="text-sm text-gray-500">Last Day</p>
+            <p id="lastDay"></p>
+          </div>
+        </div>
+
+        <canvas id="priceChart" height="120"></canvas>
       </div>
     </div>
-
-    <p id="error" class="text-red-600 mt-4 hidden"></p>
   </div>
 
-  <script>
-    const API_KEY = "7A48DHS27SKTE670";
+<script>
+const API_KEY = "7A48DHS27SKTE670";
+let currentSymbol = "";
+let chart;
 
-    async function getStock() {
-      const symbol = document.getElementById("symbolInput").value.trim().toUpperCase();
-      const resultDiv = document.getElementById("result");
-      const errorDiv = document.getElementById("error");
+// ---------------- WATCHLIST ----------------
+function getWatchlist() {
+  return JSON.parse(localStorage.getItem("watchlist") || "[]");
+}
 
-      resultDiv.classList.add("hidden");
-      errorDiv.classList.add("hidden");
+function saveWatchlist(list) {
+  localStorage.setItem("watchlist", JSON.stringify(list));
+  renderWatchlist();
+}
 
-      if (!symbol) {
-        errorDiv.textContent = "Please enter a stock symbol.";
-        errorDiv.classList.remove("hidden");
-        return;
-      }
+function addToWatchlist() {
+  const list = getWatchlist();
+  if (!list.includes(currentSymbol)) {
+    list.push(currentSymbol);
+    saveWatchlist(list);
+  }
+}
 
-      try {
-        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
-        const response = await fetch(url);
-        const data = await response.json();
+function removeFromWatchlist(symbol) {
+  const list = getWatchlist().filter(s => s !== symbol);
+  saveWatchlist(list);
+}
 
-        if (!data["Global Quote"] || Object.keys(data["Global Quote"]).length === 0) {
-          throw new Error("Invalid symbol or API limit reached");
-        }
+function renderWatchlist() {
+  const ul = document.getElementById("watchlist");
+  ul.innerHTML = "";
+  getWatchlist().forEach(symbol => {
+    const li = document.createElement("li");
+    li.className = "flex justify-between items-center bg-gray-100 px-3 py-2 rounded cursor-pointer";
+    li.innerHTML = `
+      <span onclick="loadStock('${symbol}')">${symbol}</span>
+      <button onclick="removeFromWatchlist('${symbol}')" class="text-red-500">✕</button>
+    `;
+    ul.appendChild(li);
+  });
+}
 
-        const quote = data["Global Quote"];
+// ---------------- STOCK LOAD ----------------
+async function loadStock(symbolOverride) {
+  const symbol = (symbolOverride || document.getElementById("symbolInput").value)
+    .trim().toUpperCase();
 
-        document.getElementById("stockName").textContent = symbol;
-        document.getElementById("price").textContent = `$${parseFloat(quote["05. price"]).toFixed(2)}`;
+  if (!symbol) return;
+  currentSymbol = symbol;
 
-        const change = parseFloat(quote["09. change"]);
-        const changePercent = quote["10. change percent"];
+  document.getElementById("error").classList.add("hidden");
 
-        const changeEl = document.getElementById("change");
-        changeEl.textContent = change.toFixed(2);
-        changeEl.className = change >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium";
+  try {
+    const quoteUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
+    const dailyUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`;
 
-        const changePercentEl = document.getElementById("changePercent");
-        changePercentEl.textContent = changePercent;
-        changePercentEl.className = change >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium";
+    const [quoteRes, dailyRes] = await Promise.all([
+      fetch(quoteUrl), fetch(dailyUrl)
+    ]);
 
-        document.getElementById("lastUpdated").textContent = `Last trading day: ${quote["07. latest trading day"]}`;
+    const quoteData = await quoteRes.json();
+    const dailyData = await dailyRes.json();
 
-        resultDiv.classList.remove("hidden");
-      } catch (err) {
-        errorDiv.textContent = err.message;
-        errorDiv.classList.remove("hidden");
-      }
+    if (!quoteData['Global Quote']) throw new Error("Invalid symbol or API limit reached");
+
+    const q = quoteData['Global Quote'];
+
+    document.getElementById("stockTitle").textContent = symbol;
+    document.getElementById("price").textContent = `$${(+q['05. price']).toFixed(2)}`;
+
+    const ch = +q['09. change'];
+    const chEl = document.getElementById("change");
+    chEl.textContent = `${ch.toFixed(2)} (${q['10. change percent']})`;
+    chEl.className = ch >= 0 ? "text-green-600" : "text-red-600";
+
+    document.getElementById("volume").textContent = (+q['06. volume']).toLocaleString();
+    document.getElementById("lastDay").textContent = q['07. latest trading day'];
+
+    document.getElementById("stockSection").classList.remove("hidden");
+
+    drawChart(dailyData['Time Series (Daily)']);
+
+  } catch (e) {
+    const err = document.getElementById("error");
+    err.textContent = e.message;
+    err.classList.remove("hidden");
+  }
+}
+
+// ---------------- CHART ----------------
+function drawChart(series) {
+  const dates = Object.keys(series).slice(0, 30).reverse();
+  const prices = dates.map(d => +series[d]['4. close']);
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(document.getElementById("priceChart"), {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'Closing Price',
+        data: prices,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } }
     }
-  </script>
+  });
+}
+
+renderWatchlist();
+</script>
 </body>
 </html>
