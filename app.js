@@ -1,3 +1,4 @@
+// Static sidebar/sample content
 const sampleIndices = [
     { symbol: 'SPX', name: 'S&P 500', price: 5832.41, change: 45.23, percent: 0.78 },
     { symbol: 'INDU', name: 'Dow Jones', price: 42156.34, change: 234.12, percent: 0.56 },
@@ -24,7 +25,8 @@ const sectors = [
     { name: 'Materials', change: -0.34 }
 ];
 
-const FINNHUB_API_KEY = 'd5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg';
+// Alpha Vantage config
+const ALPHA_VANTAGE_KEY = 'ETNWWSKIJ0NQ0J41';
 const ALERT_THRESHOLD = 2;
 
 let watchlist = [];
@@ -104,41 +106,54 @@ function renderMarketStats() {
     `;
 }
 
+// Alpha Vantage GLOBAL_QUOTE
 async function fetchRealPrice(symbol) {
     try {
-        const response = await fetch(
-            `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`
-        );
-        if (!response.ok) throw new Error(`API error: ${response.status}`);
-        const data = await response.json();
-        if (typeof data.c !== 'number') return null;
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${ALPHA_VANTAGE_KEY}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Quote API error: ${res.status}`);
+        const data = await res.json();
+        const q = data['Global Quote'];
+        if (!q || !q['05. price']) return null;
+
+        const price = parseFloat(q['05. price']);
+        const change = parseFloat(q['09. change'] || '0');
+        const percentStr = q['10. change percent'] || '0%';
+        const percent = parseFloat(percentStr.replace('%', '') || '0');
+
         return {
-            price: data.c,
-            change: data.d ?? 0,
-            percent: data.dp ?? 0,
-            high: data.h ?? null,
-            low: data.l ?? null,
-            open: data.o ?? null,
-            prevClose: data.pc ?? null
+            price,
+            change,
+            percent,
+            open: parseFloat(q['02. open'] || '0'),
+            high: parseFloat(q['03. high'] || '0'),
+            low: parseFloat(q['04. low'] || '0'),
+            prevClose: parseFloat(q['08. previous close'] || '0')
         };
     } catch (err) {
-        console.error('Finnhub error for', symbol, err);
+        console.error('Alpha Vantage quote error for', symbol, err);
         return null;
     }
 }
 
+// Alpha Vantage TIME_SERIES_INTRADAY for sparkline
 async function fetchIntradayCandles(symbol) {
     try {
-        const now = Math.floor(Date.now() / 1000);
-        const from = now - 6 * 60 * 60;
-        const url = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=5&from=${from}&to=${now}&token=${FINNHUB_API_KEY}`;
+        const interval = '5min';
+        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=compact&apikey=${ALPHA_VANTAGE_KEY}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Candle API error: ${res.status}`);
+        if (!res.ok) throw new Error(`Intraday API error: ${res.status}`);
         const data = await res.json();
-        if (data.s !== 'ok' || !Array.isArray(data.c) || data.c.length === 0) return null;
-        return data.c;
+        const key = `Time Series (${interval})`;
+        const series = data[key];
+        if (!series) return null;
+
+        const entries = Object.entries(series)
+            .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+            .map(([_, v]) => parseFloat(v['4. close']));
+        return entries;
     } catch (err) {
-        console.error('Candle error for', symbol, err);
+        console.error('Alpha Vantage intraday error for', symbol, err);
         return null;
     }
 }
@@ -295,35 +310,25 @@ function updateWatchlist() {
     });
 }
 
+// Alpha Vantage OVERVIEW for basic company info
 async function fetchCompanyProfile(symbol) {
     try {
-        const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`;
+        const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${encodeURIComponent(symbol)}&apikey=${ALPHA_VANTAGE_KEY}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Profile error: ${res.status}`);
+        if (!res.ok) throw new Error(`Overview error: ${res.status}`);
         const data = await res.json();
-        if (!data || Object.keys(data).length === 0) return null;
+        if (!data || Object.keys(data).length === 0 || data.Note) return null;
         return data;
     } catch (err) {
-        console.error('Profile error for', symbol, err);
+        console.error('Overview error for', symbol, err);
         return null;
     }
 }
 
+// Alpha Vantage has no direct company-news; keep static sample for now
 async function fetchCompanyNews(symbol) {
-    try {
-        const today = new Date();
-        const fromDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const fmt = d => d.toISOString().slice(0, 10);
-        const url = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${fmt(fromDate)}&to=${fmt(today)}&token=${FINNHUB_API_KEY}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`News error: ${res.status}`);
-        const data = await res.json();
-        if (!Array.isArray(data)) return [];
-        return data.slice(0, 5);
-    } catch (err) {
-        console.error('News error for', symbol, err);
-        return [];
-    }
+    // Could be replaced by a separate news API; using placeholder.
+    return [];
 }
 
 async function showDetails(symbol) {
@@ -345,9 +350,9 @@ async function showDetails(symbol) {
     if (profile) {
         profileHtml = `
             <div style="margin-bottom:12px;">
-                <div style="font-size:14px; font-weight:600;">${profile.name || symbol}</div>
+                <div style="font-size:14px; font-weight:600;">${profile.Name || symbol}</div>
                 <div style="font-size:12px; color:var(--color-text-secondary);">
-                    ${profile.exchange || ''} · ${profile.country || ''} · ${profile.currency || ''}
+                    ${profile.Exchange || ''} · ${profile.Country || ''} · ${profile.Currency || ''}
                 </div>
             </div>
         `;
@@ -365,10 +370,10 @@ async function showDetails(symbol) {
                     </span>
                 </div>
                 <div style="font-size:11px; color:var(--color-text-secondary);">
-                    O: ${quote.open?.toFixed ? quote.open.toFixed(2) : '-'} ·
-                    H: ${quote.high?.toFixed ? quote.high.toFixed(2) : '-'} ·
-                    L: ${quote.low?.toFixed ? quote.low.toFixed(2) : '-'} ·
-                    Prev: ${quote.prevClose?.toFixed ? quote.prevClose.toFixed(2) : '-'}
+                    O: ${quote.open ? quote.open.toFixed(2) : '-'} ·
+                    H: ${quote.high ? quote.high.toFixed(2) : '-'} ·
+                    L: ${quote.low ? quote.low.toFixed(2) : '-'} ·
+                    Prev: ${quote.prevClose ? quote.prevClose.toFixed(2) : '-'}
                 </div>
             </div>
         `;
@@ -394,7 +399,7 @@ async function showDetails(symbol) {
             </div>
         `;
     } else {
-        newsHtml = `<div style="font-size:11px; color:var(--color-text-secondary); margin-top:8px;">No recent company news.</div>`;
+        newsHtml = `<div style="font-size:11px; color:var(--color-text-secondary); margin-top:8px;">No recent company news via Alpha Vantage.</div>`;
     }
 
     body.innerHTML = profileHtml + quoteHtml + newsHtml;
@@ -444,7 +449,9 @@ function init() {
         }
     });
 
-    setInterval(refreshPrices, 30000);
+    // Alpha Vantage free is 5 requests/min; with watchlist + details you may hit limits. [web:184][web:198]
+    // Keep refresh modest:
+    setInterval(refreshPrices, 60000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
