@@ -19,11 +19,7 @@
     <input id="symbolInput" placeholder="AAPL" class="w-full border rounded-lg px-3 py-2" />
     <button onclick="loadStock()" class="w-full bg-blue-600 text-white py-2 rounded-lg">Search</button>
 
-    <div class="flex gap-2">
-      <button onclick="setResolution('D')" class="flex-1 bg-gray-200 rounded py-1">Daily</button>
-      <button onclick="setResolution('15')" class="flex-1 bg-gray-200 rounded py-1">15m</button>
-      <button onclick="setResolution('5')" class="flex-1 bg-gray-200 rounded py-1">5m</button>
-    </div>
+    
 
     <h3 class="font-semibold">⭐ Watchlist</h3>
     <ul id="watchlist" class="space-y-2"></ul>
@@ -68,7 +64,7 @@
 const FINNHUB_KEY = "d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg";
 let currentSymbol = "";
 let chart;
-let resolution = 'D';
+
 
 // ---------- STORAGE ----------
 const getLS = k => JSON.parse(localStorage.getItem(k) || '[]');
@@ -131,7 +127,7 @@ function renderPortfolio(){
 function removeFrom(k,s){ setLS(k,getLS(k).filter(x=>x!==s)); renderWatchlist(); }
 
 // ---------- RESOLUTION ----------
-function setResolution(r){ resolution=r; loadStock(currentSymbol); }
+
 
 // ---------- LOAD STOCK ----------
 async function loadStock(sym){
@@ -141,13 +137,11 @@ async function loadStock(sym){
   try{
     const now = Math.floor(Date.now()/1000);
     // Finnhub requires shorter ranges for intraday data
-    const from = resolution === 'D' 
-      ? now - 60 * 60 * 24 * 30 
-      : now - 60 * 60 * 24 * 5;
+    const from = now - 60 * 60 * 24 * 30; // 30 days daily data only
 
     const [q,c,n,s] = await Promise.all([
       fetch(`https://finnhub.io/api/v1/quote?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json()),
-      fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${currentSymbol}&resolution=${resolution}&from=${from}&to=${now}&token=${FINNHUB_KEY}`).then(r=>r.json()),
+      fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${currentSymbol}&resolution=D&from=${from}&to=${now}&token=${FINNHUB_KEY}`).then(r=>r.json()),
       fetch(`https://finnhub.io/api/v1/company-news?symbol=${currentSymbol}&from=2024-01-01&to=2026-12-31&token=${FINNHUB_KEY}`).then(r=>r.json()),
       fetch(`https://finnhub.io/api/v1/news-sentiment?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json())
     ]);
