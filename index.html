@@ -3,66 +3,211 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Finnhub Stock Tracker (Global Functions)</title>
+  <title>Stock Tracker (Finnhub Data + Alpha Vantage Charts)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
 
-  <script src="https://cdn.tailwindcss.com" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-  <script defer>
-    const FINNHUB_KEY = "d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg";
-    let currentSymbol = "";
-    let chart;
+<div class="max-w-6xl mx-auto grid lg:grid-cols-4 gap-6">
 
-    const getLS = k => JSON.parse(localStorage.getItem(k) || '[]');
-    const setLS = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+  <!-- LEFT PANEL -->
+  <div class="bg-white rounded-2xl shadow p-4 space-y-4">
+    <h2 class="text-xl font-bold">📈 Stock Tracker</h2>
 
-    // ---------- WATCHLIST ----------
-    function addToWatchlist(){
-      const list = getLS('watchlist');
-      if(!list.includes(currentSymbol)) list.push(currentSymbol);
-      setLS('watchlist', list); renderWatchlist();
-    }
+    <input id="symbolInput" placeholder="AAPL" class="w-full border rounded-lg px-3 py-2" />
+    <button id="searchButton" onclick="loadStock()" class="w-full bg-blue-600 text-white py-2 rounded-lg">Search</button>
 
-    function renderWatchlist(){
-      const ul = document.getElementById('watchlist'); ul.innerHTML='';
-      const list = getLS('watchlist');
-      list.forEach(s=>{
-        const li = document.createElement('li');
-        li.className = 'flex justify-between bg-gray-100 p-2 rounded';
+    <h3 class="font-semibold">⭐ Watchlist</h3>
+    <ul id="watchlist" class="space-y-2"></ul>
 
-        const span = document.createElement('span');
-        span.className = 'cursor-pointer';
-        span.textContent = s;
-        span.onclick = function(){ loadStock(s); };
+    <h3 class="font-semibold">💼 Portfolio</h3>
+    <div class="flex gap-2">
+      <button id="addPosition" onclick="addToPortfolio()" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Add Position</button>
+      <button id="clearPortfolio" onclick="clearPortfolio()" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Clear</button>
+    </div>
+    <ul id="portfolio" class="space-y-2"></ul>
+  </div>
 
-        const btn = document.createElement('button');
-        btn.textContent = '✕';
-        btn.onclick = function(){ removeFrom('watchlist', s); };
+  <!-- MAIN PANEL -->
+  <div class="lg:col-span-3 bg-white rounded-2xl shadow p-4 space-y-6">
+    <div id="error" class="text-red-600 hidden"></div>
 
-        li.appendChild(span);
-        li.appendChild(btn);
-        ul.appendChild(li);
-      });
-    }
+    <div id="stockSection" class="hidden space-y-4">
+      <div class="flex justify-between items-center">
+        <h1 id="stockTitle" class="text-2xl font-bold"></h1>
+        <button id="watchButton" onclick="addToWatchlist()" class="bg-blue-600 text-white px-3 py-1 rounded">+ Watch</button>
+      </div>
 
-    function removeFrom(k,s){ setLS(k,getLS(k).filter(x=>x!==s)); renderWatchlist(); }
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="p-3 bg-gray-50 rounded">Price<br><span id="price"></span></div>
+        <div class="p-3 bg-gray-50 rounded">Change<br><span id="change"></span></div>
+        <div class="p-3 bg-gray-50 rounded">Updated<br><span id="lastDay"></span></div>
+        <div class="p-3 bg-gray-50 rounded">Sentiment<br><span id="sentiment"></span></div>
+      </div>
 
-    // ---------- PORTFOLIO ----------
-    function addToPortfolio(){
-      const qty = prompt('Shares:');
-      const price = prompt('Buy price:');
-      if(!qty || !price) return;
-      const p = getLS('portfolio');
-      p.push({symbol:currentSymbol, qty:+qty, price:+price});
-      setLS('portfolio', p); renderPortfolio();
-    }
+      <canvas id="priceChart" height="120"></canvas>
 
-    function renderPortfolio(){
-      const ul = document.getElementById('portfolio'); ul.innerHTML='';
-      const data = getLS('portfolio');
-      if(data.length === 0){ ul.innerHTML = '<li class="text-gray-500">No positions</li>'; return; }
-      data.forEach((pos,i)=>{
-        const li = document.createElement('li');
-        li.className = 'bg-gray-100 p-2 rounded flex justify-between items-center';
+      <div>
+        <h3 class="font-semibold mb-2">📰 Company News</h3>
+        <ul id="news" class="space-y-2"></ul>
+      </div>
+    </div>
+  </div>
+</div>
 
-        const span = document.createElement('span');
-        span.textContent = `${p
+<script>
+const ALPHA_KEY = "7A48DHS27SKTE670";
+const FINNHUB_KEY = "d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg";
+let currentSymbol = "";
+let chart;
+
+const getLS = k => JSON.parse(localStorage.getItem(k) || '[]');
+const setLS = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+
+function addToWatchlist(){
+  const list = getLS('watchlist');
+  if(!list.includes(currentSymbol)) list.push(currentSymbol);
+  setLS('watchlist', list); renderWatchlist();
+}
+
+function renderWatchlist(){
+  const ul = document.getElementById('watchlist'); ul.innerHTML='';
+  const list = getLS('watchlist');
+  list.forEach(s=>{
+    const li = document.createElement('li');
+    li.className = 'flex justify-between bg-gray-100 p-2 rounded';
+    const span = document.createElement('span');
+    span.className = 'cursor-pointer';
+    span.textContent = s;
+    span.onclick = function(){ loadStock(s); };
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.onclick = function(){ removeFrom('watchlist', s); };
+    li.appendChild(span); li.appendChild(btn); ul.appendChild(li);
+  });
+}
+
+function removeFrom(k,s){ setLS(k,getLS(k).filter(x=>x!==s)); renderWatchlist(); }
+
+function addToPortfolio(){
+  const qty = prompt('Shares:');
+  const price = prompt('Buy price:');
+  if(!qty || !price) return;
+  const p = getLS('portfolio');
+  p.push({symbol:currentSymbol, qty:+qty, price:+price});
+  setLS('portfolio', p); renderPortfolio();
+}
+
+function renderPortfolio(){
+  const ul = document.getElementById('portfolio'); ul.innerHTML='';
+  const data = getLS('portfolio');
+  if(data.length === 0){ ul.innerHTML = '<li class="text-gray-500">No positions</li>'; return; }
+  data.forEach((pos,i)=>{
+    const li = document.createElement('li');
+    li.className = 'bg-gray-100 p-2 rounded flex justify-between items-center';
+    const span = document.createElement('span');
+    span.textContent = `${pos.symbol} | ${pos.qty} @ $${pos.price}`;
+    const btn = document.createElement('button');
+    btn.className = 'text-red-600';
+    btn.textContent = '✕';
+    btn.onclick = function(){ removePortfolio(i); };
+    li.appendChild(span); li.appendChild(btn); ul.appendChild(li);
+  });
+}
+
+function removePortfolio(i){
+  const p = getLS('portfolio'); p.splice(i,1); setLS('portfolio', p); renderPortfolio();
+}
+
+function clearPortfolio(){
+  if(!confirm('Clear entire portfolio?')) return;
+  localStorage.removeItem('portfolio'); renderPortfolio();
+}
+
+async function loadStock(sym){
+  currentSymbol = (sym || document.getElementById('symbolInput').value).toUpperCase();
+  if(!currentSymbol) return;
+  try{
+    // Finnhub: Quote
+    const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${currentSymbol}&token=${FINNHUB_KEY}`);
+    const q = await quoteRes.json();
+
+    // Finnhub: Sentiment
+    const sentimentRes = await fetch(`https://finnhub.io/api/v1/news-sentiment?symbol=${currentSymbol}&token=${FINNHUB_KEY}`);
+    const s = await sentimentRes.json();
+
+    document.getElementById('stockTitle').textContent = currentSymbol;
+    document.getElementById('price').textContent = `$${q.c.toFixed(2)}`;
+    const chEl = document.getElementById('change');
+    chEl.textContent = `${q.d.toFixed(2)} (${q.dp.toFixed(2)}%)`;
+    chEl.className = q.d >= 0 ? 'text-green-600' : 'text-red-600';
+    document.getElementById('lastDay').textContent = new Date(q.t*1000).toLocaleDateString();
+    document.getElementById('sentiment').textContent = (s.sentiment?.score || 0).toFixed(2);
+
+    // Alpha Vantage: Historical chart
+    const now = new Date();
+    const from = Math.floor(Date.now()/1000) - 60*60*24*365;
+    const histRes = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${currentSymbol}&outputsize=compact&apikey=${ALPHA_KEY}`);
+    const histData = await histRes.json();
+    const timeSeries = histData['Time Series (Daily)'];
+    if(!timeSeries || Object.keys(timeSeries).length === 0) throw new Error('No historical chart data');
+
+    const labels = Object.keys(timeSeries).sort();
+    const prices = labels.map(date => parseFloat(timeSeries[date]['4. close']));
+    drawChart({labels, prices});
+
+    // Finnhub: News
+    const newsRes = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${currentSymbol}&from=2024-01-01&to=2026-12-31&token=${FINNHUB_KEY}`);
+    const newsData = await newsRes.json();
+    renderNews(newsData.slice(0,5));
+
+    document.getElementById('stockSection').classList.remove('hidden');
+    document.getElementById('error').classList.add('hidden');
+  } catch(e){
+    const errorEl = document.getElementById('error');
+    errorEl.textContent = e.message;
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function drawChart(d){
+  if(!d || !d.labels?.length || !d.prices?.length){
+    const canvas = document.getElementById('priceChart');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.font = '16px sans-serif';
+    ctx.fillText('No chart data available', 10, 50);
+    return;
+  }
+  if(chart) chart.destroy();
+  chart = new Chart(document.getElementById('priceChart'),{
+    type:'line', data:{labels:d.labels, datasets:[{data:d.prices, tension:0.3}]},
+    options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{display:true}, y:{display:true}}}
+  });
+}
+
+function renderNews(list){
+  const newsEl = document.getElementById('news'); newsEl.innerHTML='';
+  list.forEach(a=>{
+    const li = document.createElement('li'); li.className='bg-gray-100 p-2 rounded';
+    const link = document.createElement('a'); link.href=a.url; link.target='_blank'; link.className='font-semibold'; link.textContent=a.headline;
+    li.appendChild(link); newsEl.appendChild(li);
+  });
+}
+
+window.loadStock = loadStock;
+window.addToWatchlist = addToWatchlist;
+window.addToPortfolio = addToPortfolio;
+window.clearPortfolio = clearPortfolio;
+window.removePortfolio = removePortfolio;
+window.removeFrom = removeFrom;
+
+window.onload = function(){
+  renderWatchlist();
+  renderPortfolio();
+};
+</script>
+
+</body>
+</html>
