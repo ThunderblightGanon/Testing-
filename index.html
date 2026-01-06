@@ -3,191 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Professional Stock Tracker (Finnhub)</title>
+  <title>Finnhub Stock Tracker (Global Functions)</title>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body class="bg-gray-100 min-h-screen p-6">
+  <script src="https://cdn.tailwindcss.com" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script defer>
+    const FINNHUB_KEY = "d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg";
+    let currentSymbol = "";
+    let chart;
 
-<div class="max-w-6xl mx-auto grid lg:grid-cols-4 gap-6">
+    const getLS = k => JSON.parse(localStorage.getItem(k) || '[]');
+    const setLS = (k,v) => localStorage.setItem(k, JSON.stringify(v));
 
-  <!-- LEFT PANEL -->
-  <div class="bg-white rounded-2xl shadow p-4 space-y-4">
-    <h2 class="text-xl font-bold">📈 Stock Tracker</h2>
+    // ---------- WATCHLIST ----------
+    function addToWatchlist(){
+      const list = getLS('watchlist');
+      if(!list.includes(currentSymbol)) list.push(currentSymbol);
+      setLS('watchlist', list); renderWatchlist();
+    }
 
-    <input id="symbolInput" placeholder="AAPL" class="w-full border rounded-lg px-3 py-2" />
-    <button id="searchButton" class="w-full bg-blue-600 text-white py-2 rounded-lg">Search</button>
+    function renderWatchlist(){
+      const ul = document.getElementById('watchlist'); ul.innerHTML='';
+      const list = getLS('watchlist');
+      list.forEach(s=>{
+        const li = document.createElement('li');
+        li.className = 'flex justify-between bg-gray-100 p-2 rounded';
 
-    <h3 class="font-semibold">⭐ Watchlist</h3>
-    <ul id="watchlist" class="space-y-2"></ul>
+        const span = document.createElement('span');
+        span.className = 'cursor-pointer';
+        span.textContent = s;
+        span.onclick = function(){ loadStock(s); };
 
-    <h3 class="font-semibold">💼 Portfolio</h3>
-    <div class="flex gap-2">
-      <button id="addPosition" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Add Position</button>
-      <button id="clearPortfolio" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Clear</button>
-    </div>
-    <ul id="portfolio" class="space-y-2"></ul>
-  </div>
+        const btn = document.createElement('button');
+        btn.textContent = '✕';
+        btn.onclick = function(){ removeFrom('watchlist', s); };
 
-  <!-- MAIN PANEL -->
-  <div class="lg:col-span-3 bg-white rounded-2xl shadow p-4 space-y-6">
+        li.appendChild(span);
+        li.appendChild(btn);
+        ul.appendChild(li);
+      });
+    }
 
-    <div id="error" class="text-red-600 hidden"></div>
+    function removeFrom(k,s){ setLS(k,getLS(k).filter(x=>x!==s)); renderWatchlist(); }
 
-    <div id="stockSection" class="hidden space-y-4">
-      <div class="flex justify-between items-center">
-        <h1 id="stockTitle" class="text-2xl font-bold"></h1>
-        <button id="watchButton" class="bg-blue-600 text-white px-3 py-1 rounded">+ Watch</button>
-      </div>
+    // ---------- PORTFOLIO ----------
+    function addToPortfolio(){
+      const qty = prompt('Shares:');
+      const price = prompt('Buy price:');
+      if(!qty || !price) return;
+      const p = getLS('portfolio');
+      p.push({symbol:currentSymbol, qty:+qty, price:+price});
+      setLS('portfolio', p); renderPortfolio();
+    }
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="p-3 bg-gray-50 rounded">Price<br><span id="price"></span></div>
-        <div class="p-3 bg-gray-50 rounded">Change<br><span id="change"></span></div>
-        <div class="p-3 bg-gray-50 rounded">Sentiment<br><span id="sentiment"></span></div>
-        <div class="p-3 bg-gray-50 rounded">Updated<br><span id="lastDay"></span></div>
-      </div>
+    function renderPortfolio(){
+      const ul = document.getElementById('portfolio'); ul.innerHTML='';
+      const data = getLS('portfolio');
+      if(data.length === 0){ ul.innerHTML = '<li class="text-gray-500">No positions</li>'; return; }
+      data.forEach((pos,i)=>{
+        const li = document.createElement('li');
+        li.className = 'bg-gray-100 p-2 rounded flex justify-between items-center';
 
-      <canvas id="priceChart" height="120"></canvas>
-
-      <div>
-        <h3 class="font-semibold mb-2">📰 Company News</h3>
-        <ul id="news" class="space-y-2"></ul>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-window.onload = function() {
-const FINNHUB_KEY = "d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg";
-let currentSymbol = "";
-let chart;
-
-// ---------- STORAGE ----------
-const getLS = k => JSON.parse(localStorage.getItem(k) || '[]');
-const setLS = (k,v) => localStorage.setItem(k, JSON.stringify(v));
-
-// ---------- WATCHLIST ----------
-function addToWatchlist(){
-  const list = getLS('watchlist');
-  if(!list.includes(currentSymbol)) list.push(currentSymbol);
-  setLS('watchlist', list); renderWatchlist();
-}
-function renderWatchlist(){
-  const ul = document.getElementById('watchlist'); ul.innerHTML='';
-  getLS('watchlist').forEach(s=>{
-    ul.innerHTML += `<li class="flex justify-between bg-gray-100 p-2 rounded">
-      <span onclick="loadStock('${s}')" class="cursor-pointer">${s}</span>
-      <button onclick="removeFrom('watchlist','${s}')">✕</button></li>`;
-  });
-}
-
-// ---------- PORTFOLIO ----------
-function addToPortfolio(){
-  const qty = prompt('Shares:');
-  const price = prompt('Buy price:');
-  if(!qty || !price) return;
-  const p = getLS('portfolio');
-  p.push({symbol:currentSymbol, qty:+qty, price:+price});
-  setLS('portfolio', p); renderPortfolio();
-}
-function renderPortfolio(){
-  const ul = document.getElementById('portfolio'); ul.innerHTML='';
-  const data = getLS('portfolio');
-  if(data.length === 0){
-    ul.innerHTML = '<li class="text-gray-500">No positions</li>';
-    return;
-  }
-  data.forEach((pos,i)=>{
-    ul.innerHTML += `<li class="bg-gray-100 p-2 rounded flex justify-between items-center">
-      <span>${pos.symbol} | ${pos.qty} @ $${pos.price}</span>
-      <button onclick="removePortfolio(${i})" class="text-red-600">✕</button>
-    </li>`;
-  });
-}
-function removeFrom(k,s){ setLS(k,getLS(k).filter(x=>x!==s)); renderWatchlist(); }
-function removePortfolio(i){
-  const p = getLS('portfolio');
-  p.splice(i,1);
-  setLS('portfolio',p);
-  renderPortfolio();
-}
-function clearPortfolio(){
-  if(!confirm('Clear entire portfolio?')) return;
-  localStorage.removeItem('portfolio');
-  renderPortfolio();
-}
-
-// ---------- LOAD STOCK ----------
-async function loadStock(sym){
-  currentSymbol = (sym || document.getElementById('symbolInput').value).toUpperCase();
-  if(!currentSymbol) return;
-
-  try{
-    const now = Math.floor(Date.now()/1000);
-    const from = now - 60*60*24*30;
-
-    const [q,c,n,s] = await Promise.all([
-      fetch(`https://finnhub.io/api/v1/quote?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json()),
-      fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${currentSymbol}&resolution=D&from=${from}&to=${now}&token=${FINNHUB_KEY}`).then(r=>r.json()),
-      fetch(`https://finnhub.io/api/v1/company-news?symbol=${currentSymbol}&from=2024-01-01&to=2026-12-31&token=${FINNHUB_KEY}`).then(r=>r.json()),
-      fetch(`https://finnhub.io/api/v1/news-sentiment?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json())
-    ]);
-
-    document.getElementById('stockTitle').textContent=currentSymbol;
-    document.getElementById('price').textContent=`$${q.c.toFixed(2)}`;
-    const chEl = document.getElementById('change');
-    chEl.textContent=`${q.d.toFixed(2)} (${q.dp.toFixed(2)}%)`;
-    chEl.className=q.d>=0?'text-green-600':'text-red-600';
-    document.getElementById('lastDay').textContent=new Date(q.t*1000).toLocaleDateString();
-    document.getElementById('sentiment').textContent=(s.sentiment?.score||0).toFixed(2);
-
-    drawChart(c);
-    renderNews(n.slice(0,5));
-
-    document.getElementById('stockSection').classList.remove('hidden');
-  }catch(e){
-    const errorEl = document.getElementById('error');
-    errorEl.textContent=e.message;
-    errorEl.classList.remove('hidden');
-  }
-}
-
-// ---------- CHART ----------
-function drawChart(d){
-  if(!d || d.s!=='ok'){
-    console.warn('No chart data returned', d);
-    return;
-  }
-  const labels = d.t.map(t => new Date(t*1000).toLocaleDateString());
-  const prices = d.c;
-  if(chart) chart.destroy();
-  chart=new Chart(document.getElementById('priceChart'),{
-    type:'line',
-    data:{labels, datasets:[{data:prices, tension:0.3}]},
-    options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{display:true}, y:{display:true}}}
-  });
-}
-
-// ---------- NEWS ----------
-function renderNews(list){
-  const newsEl = document.getElementById('news');
-  newsEl.innerHTML='';
-  list.forEach(a=>{
-    newsEl.innerHTML += `<li class="bg-gray-100 p-2 rounded"><a href="${a.url}" target="_blank" class="font-semibold">${a.headline}</a></li>`;
-  });
-}
-
-// ---------- EVENT LISTENERS ----------
-document.getElementById('searchButton').onclick = () => loadStock();
-document.getElementById('watchButton').onclick = () => addToWatchlist();
-document.getElementById('addPosition').onclick = () => addToPortfolio();
-document.getElementById('clearPortfolio').onclick = () => clearPortfolio();
-
-renderWatchlist();
-renderPortfolio();
-} // end window.onload
-</script>
-</body>
-</html>
+        const span = document.createElement('span');
+        span.textContent = `${p
