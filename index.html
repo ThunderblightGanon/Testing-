@@ -536,7 +536,7 @@
     </div>
 
     <script>
-        // Sample data - in production this would come from real APIs
+        // Sample static data (indices, news, sectors)
         const sampleIndices = [
             { symbol: 'SPX', name: 'S&P 500', price: 5832.41, change: 45.23, percent: 0.78 },
             { symbol: 'INDU', name: 'Dow Jones', price: 42156.34, change: 234.12, percent: 0.56 },
@@ -562,6 +562,9 @@
             { name: 'Industrials', change: 0.67 },
             { name: 'Materials', change: -0.34 }
         ];
+
+        // YOUR FINNHUB KEY (will be visible if repo is public)
+        const FINNHUB_API_KEY = 'd5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg';
 
         let watchlist = [];
         let currentView = 'watchlist';
@@ -647,54 +650,46 @@
             `;
         }
 
-        const FINNHUB_API_KEY = d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg;
-        
         async function fetchRealPrice(symbol) {
             try {
                 const response = await fetch(
-                    `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg}`
+                    `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`
                 );
                 if (!response.ok) throw new Error(`API error: ${response.status}`);
-                
                 const data = await response.json();
-                if (data.c === undefined) {
-                    console.warn(`Invalid response for ${symbol}:`, data);
-                    return null;
-                }
+                if (typeof data.c !== 'number') return null;
                 return {
                     price: data.c,
-                    change: data.d || 0,
-                    percent: data.dp || 0
+                    change: data.d ?? 0,
+                    percent: data.dp ?? 0
                 };
-            } catch (error) {
-                console.error(`Failed to fetch price for ${symbol}:`, error);
+            } catch (err) {
+                console.error('Finnhub error for', symbol, err);
                 return null;
             }
         }
 
         async function addToWatchlist() {
             const input = document.getElementById('symbolInput');
-            const button = document.querySelector('.btn');
             const symbol = input.value.toUpperCase().trim();
-
             if (!symbol) {
                 alert('Please enter a stock symbol');
                 return;
             }
-
             if (watchlist.find(w => w.symbol === symbol)) {
                 alert('Stock already in watchlist');
-                input.value = '';
                 return;
             }
 
-            button.disabled = true;
-            button.textContent = 'Loading...';
+            const btn = document.querySelector('.btn');
+            const oldText = btn.textContent;
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
 
             const priceData = await fetchRealPrice(symbol);
-            
-            button.disabled = false;
-            button.textContent = 'Add';
+
+            btn.textContent = oldText;
+            btn.disabled = false;
 
             if (!priceData) {
                 alert(`Could not fetch price for ${symbol}. Check symbol or try again.`);
@@ -708,11 +703,11 @@
                 percent: priceData.percent.toFixed(2)
             });
             input.value = '';
-            input.focus();
             updateWatchlist();
         }
 
         async function refreshPrices() {
+            if (watchlist.length === 0) return;
             for (let stock of watchlist) {
                 const priceData = await fetchRealPrice(stock.symbol);
                 if (priceData) {
@@ -732,20 +727,24 @@
         function updateWatchlist() {
             const container = document.getElementById('watchlist');
             if (watchlist.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No stocks in watchlist. Add one above.</p></div>';
+                container.innerHTML =
+                    '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No stocks in watchlist. Add one above.</p></div>';
                 return;
             }
-
             container.innerHTML = watchlist.map(stock => `
                 <div class="ticker-card">
                     <div class="ticker-header">
                         <span class="ticker-symbol">${stock.symbol}</span>
-                        <span class="ticker-price ${stock.change >= 0 ? 'up' : 'down'}">$${stock.price}</span>
+                        <span class="ticker-price ${parseFloat(stock.change) >= 0 ? 'up' : 'down'}">$${stock.price}</span>
                     </div>
                     <div class="ticker-change">
                         <span>
-                            <span class="change-value ${stock.change >= 0 ? 'up' : 'down'}">${stock.change >= 0 ? '+' : ''}${stock.change}</span>
-                            <span class="change-percent">(${stock.percent >= 0 ? '+' : ''}${stock.percent}%)</span>
+                            <span class="change-value ${parseFloat(stock.change) >= 0 ? 'up' : 'down'}">
+                                ${parseFloat(stock.change) >= 0 ? '+' : ''}${stock.change}
+                            </span>
+                            <span class="change-percent">
+                                (${parseFloat(stock.percent) >= 0 ? '+' : ''}${stock.percent}%)
+                            </span>
                         </span>
                         <button class="btn-danger" onclick="removeFromWatchlist('${stock.symbol}')">Remove</button>
                     </div>
@@ -767,29 +766,12 @@
         }
 
         function handleSearch() {
-            // Placeholder for search functionality
+            // placeholder for later
         }
 
-        // Initialize on load
         init();
-        
-        // Auto-refresh prices every 30 seconds
         setInterval(refreshPrices, 30000);
-    <script>
-  const FINNHUB_KEY = d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg ;   // visible on the client
-
-  async function loadQuote(symbol) {
-    const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();   // parse JSON body
-    const price = data.c;            // current price field
-    const el = document.getElementById('price-' + symbol);
-    if (el) el.textContent = price?.toFixed ? price.toFixed(2) : price;
-  }
-  // Call for a few tickers when page loads
-  loadQuote('AAPL');
-  loadQuote('MSFT');
-</script>
+    </script>
 </body>
 </html>
+
