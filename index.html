@@ -17,17 +17,15 @@
     <h2 class="text-xl font-bold">📈 Stock Tracker</h2>
 
     <input id="symbolInput" placeholder="AAPL" class="w-full border rounded-lg px-3 py-2" />
-    <button onclick="loadStock()" class="w-full bg-blue-600 text-white py-2 rounded-lg">Search</button>
-
-    
+    <button id="searchButton" class="w-full bg-blue-600 text-white py-2 rounded-lg">Search</button>
 
     <h3 class="font-semibold">⭐ Watchlist</h3>
     <ul id="watchlist" class="space-y-2"></ul>
 
     <h3 class="font-semibold">💼 Portfolio</h3>
     <div class="flex gap-2">
-      <button onclick="addToPortfolio()" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Add Position</button>
-      <button onclick="clearPortfolio()" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Clear</button>
+      <button id="addPosition" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Add Position</button>
+      <button id="clearPortfolio" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Clear</button>
     </div>
     <ul id="portfolio" class="space-y-2"></ul>
   </div>
@@ -40,7 +38,7 @@
     <div id="stockSection" class="hidden space-y-4">
       <div class="flex justify-between items-center">
         <h1 id="stockTitle" class="text-2xl font-bold"></h1>
-        <button onclick="addToWatchlist()" class="bg-blue-600 text-white px-3 py-1 rounded">+ Watch</button>
+        <button id="watchButton" class="bg-blue-600 text-white px-3 py-1 rounded">+ Watch</button>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -61,10 +59,10 @@
 </div>
 
 <script>
+window.onload = function() {
 const FINNHUB_KEY = "d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg";
 let currentSymbol = "";
 let chart;
-
 
 // ---------- STORAGE ----------
 const getLS = k => JSON.parse(localStorage.getItem(k) || '[]');
@@ -93,19 +91,6 @@ function addToPortfolio(){
   const p = getLS('portfolio');
   p.push({symbol:currentSymbol, qty:+qty, price:+price});
   setLS('portfolio', p); renderPortfolio();
-
-function removePortfolio(i){
-  const p = getLS('portfolio');
-  p.splice(i,1);
-  setLS('portfolio',p);
-  renderPortfolio();
-}
-
-function clearPortfolio(){
-  if(!confirm('Clear entire portfolio?')) return;
-  localStorage.removeItem('portfolio');
-  renderPortfolio();
-}
 }
 function renderPortfolio(){
   const ul = document.getElementById('portfolio'); ul.innerHTML='';
@@ -120,24 +105,28 @@ function renderPortfolio(){
       <button onclick="removePortfolio(${i})" class="text-red-600">✕</button>
     </li>`;
   });
-} | ${pos.qty} @ $${pos.price}</li>`;
-  });
 }
-
 function removeFrom(k,s){ setLS(k,getLS(k).filter(x=>x!==s)); renderWatchlist(); }
-
-// ---------- RESOLUTION ----------
-
+function removePortfolio(i){
+  const p = getLS('portfolio');
+  p.splice(i,1);
+  setLS('portfolio',p);
+  renderPortfolio();
+}
+function clearPortfolio(){
+  if(!confirm('Clear entire portfolio?')) return;
+  localStorage.removeItem('portfolio');
+  renderPortfolio();
+}
 
 // ---------- LOAD STOCK ----------
 async function loadStock(sym){
-  currentSymbol = (sym || symbolInput.value).toUpperCase();
+  currentSymbol = (sym || document.getElementById('symbolInput').value).toUpperCase();
   if(!currentSymbol) return;
 
   try{
     const now = Math.floor(Date.now()/1000);
-    // Finnhub requires shorter ranges for intraday data
-    const from = now - 60 * 60 * 24 * 30; // 30 days daily data only
+    const from = now - 60*60*24*30;
 
     const [q,c,n,s] = await Promise.all([
       fetch(`https://finnhub.io/api/v1/quote?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json()),
@@ -147,60 +136,58 @@ async function loadStock(sym){
     ]);
 
     document.getElementById('stockTitle').textContent=currentSymbol;
-    price.textContent=`$${q.c.toFixed(2)}`;
-    change.textContent=`${q.d.toFixed(2)} (${q.dp.toFixed(2)}%)`;
-    change.className=q.d>=0?'text-green-600':'text-red-600';
-    lastDay.textContent=new Date(q.t*1000).toLocaleDateString();
-    sentiment.textContent=(s.sentiment?.score||0).toFixed(2);
+    document.getElementById('price').textContent=`$${q.c.toFixed(2)}`;
+    const chEl = document.getElementById('change');
+    chEl.textContent=`${q.d.toFixed(2)} (${q.dp.toFixed(2)}%)`;
+    chEl.className=q.d>=0?'text-green-600':'text-red-600';
+    document.getElementById('lastDay').textContent=new Date(q.t*1000).toLocaleDateString();
+    document.getElementById('sentiment').textContent=(s.sentiment?.score||0).toFixed(2);
 
     drawChart(c);
     renderNews(n.slice(0,5));
 
-    stockSection.classList.remove('hidden');
-  }catch(e){ error.textContent=e.message; error.classList.remove('hidden'); }
+    document.getElementById('stockSection').classList.remove('hidden');
+  }catch(e){
+    const errorEl = document.getElementById('error');
+    errorEl.textContent=e.message;
+    errorEl.classList.remove('hidden');
+  }
 }
 
 // ---------- CHART ----------
 function drawChart(d){
-  if(!d || d.s !== 'ok'){
+  if(!d || d.s!=='ok'){
     console.warn('No chart data returned', d);
     return;
   }
-
-  const labels = d.t.map(t => new Date(t * 1000).toLocaleDateString());
+  const labels = d.t.map(t => new Date(t*1000).toLocaleDateString());
   const prices = d.c;
-
   if(chart) chart.destroy();
-
-  chart = new Chart(priceChart, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data: prices,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { display: true },
-        y: { display: true }
-      }
-    }
+  chart=new Chart(document.getElementById('priceChart'),{
+    type:'line',
+    data:{labels, datasets:[{data:prices, tension:0.3}]},
+    options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{display:true}, y:{display:true}}}
   });
-}]},options:{plugins:{legend:{display:false}}}});
 }
 
 // ---------- NEWS ----------
 function renderNews(list){
-  news.innerHTML='';
-  list.forEach(a=>news.innerHTML+=`<li class="bg-gray-100 p-2 rounded"><a href="${a.url}" target="_blank" class="font-semibold">${a.headline}</a></li>`);
+  const newsEl = document.getElementById('news');
+  newsEl.innerHTML='';
+  list.forEach(a=>{
+    newsEl.innerHTML += `<li class="bg-gray-100 p-2 rounded"><a href="${a.url}" target="_blank" class="font-semibold">${a.headline}</a></li>`;
+  });
 }
+
+// ---------- EVENT LISTENERS ----------
+document.getElementById('searchButton').onclick = () => loadStock();
+document.getElementById('watchButton').onclick = () => addToWatchlist();
+document.getElementById('addPosition').onclick = () => addToPortfolio();
+document.getElementById('clearPortfolio').onclick = () => clearPortfolio();
 
 renderWatchlist();
 renderPortfolio();
+} // end window.onload
 </script>
 </body>
 </html>
