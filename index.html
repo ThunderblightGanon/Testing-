@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stock Tracker (Finnhub Data + Alpha Vantage Charts)</title>
+  <title>Finnhub Stock Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -57,7 +57,6 @@
 </div>
 
 <script>
-const ALPHA_KEY = "7A48DHS27SKTE670";
 const FINNHUB_KEY = "d5eaap9r01qjckl2rtg0d5eaap9r01qjckl2rtgg";
 let currentSymbol = "";
 let chart;
@@ -129,13 +128,11 @@ async function loadStock(sym){
   currentSymbol = (sym || document.getElementById('symbolInput').value).toUpperCase();
   if(!currentSymbol) return;
   try{
-    // Finnhub: Quote
-    const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${currentSymbol}&token=${FINNHUB_KEY}`);
-    const q = await quoteRes.json();
-
-    // Finnhub: Sentiment
-    const sentimentRes = await fetch(`https://finnhub.io/api/v1/news-sentiment?symbol=${currentSymbol}&token=${FINNHUB_KEY}`);
-    const s = await sentimentRes.json();
+    const [q, n, s] = await Promise.all([
+      fetch(`https://finnhub.io/api/v1/quote?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json()),
+      fetch(`https://finnhub.io/api/v1/company-news?symbol=${currentSymbol}&from=2024-01-01&to=2026-12-31&token=${FINNHUB_KEY}`).then(r=>r.json()),
+      fetch(`https://finnhub.io/api/v1/news-sentiment?symbol=${currentSymbol}&token=${FINNHUB_KEY}`).then(r=>r.json())
+    ]);
 
     document.getElementById('stockTitle').textContent = currentSymbol;
     document.getElementById('price').textContent = `$${q.c.toFixed(2)}`;
@@ -145,23 +142,14 @@ async function loadStock(sym){
     document.getElementById('lastDay').textContent = new Date(q.t*1000).toLocaleDateString();
     document.getElementById('sentiment').textContent = (s.sentiment?.score || 0).toFixed(2);
 
-    // Alpha Vantage: Historical chart
-    const now = new Date();
-    const from = Math.floor(Date.now()/1000) - 60*60*24*365;
-    const histRes = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${currentSymbol}&outputsize=compact&apikey=${ALPHA_KEY}`);
-    const histData = await histRes.json();
-    const timeSeries = histData['Time Series (Daily)'];
-    if(!timeSeries || Object.keys(timeSeries).length === 0) throw new Error('No historical chart data');
+    // Clear chart (Finnhub free API doesn't provide historical charts directly)
+    if(chart) chart.destroy();
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    ctx.clearRect(0,0,ctx.canvas.width, ctx.canvas.height);
+    ctx.font = '16px sans-serif';
+    ctx.fillText('Chart unavailable with current Finnhub data', 10, 50);
 
-    const labels = Object.keys(timeSeries).sort();
-    const prices = labels.map(date => parseFloat(timeSeries[date]['4. close']));
-    drawChart({labels, prices});
-
-    // Finnhub: News
-    const newsRes = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${currentSymbol}&from=2024-01-01&to=2026-12-31&token=${FINNHUB_KEY}`);
-    const newsData = await newsRes.json();
-    renderNews(newsData.slice(0,5));
-
+    renderNews(n.slice(0,5));
     document.getElementById('stockSection').classList.remove('hidden');
     document.getElementById('error').classList.add('hidden');
   } catch(e){
@@ -169,22 +157,6 @@ async function loadStock(sym){
     errorEl.textContent = e.message;
     errorEl.classList.remove('hidden');
   }
-}
-
-function drawChart(d){
-  if(!d || !d.labels?.length || !d.prices?.length){
-    const canvas = document.getElementById('priceChart');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.font = '16px sans-serif';
-    ctx.fillText('No chart data available', 10, 50);
-    return;
-  }
-  if(chart) chart.destroy();
-  chart = new Chart(document.getElementById('priceChart'),{
-    type:'line', data:{labels:d.labels, datasets:[{data:d.prices, tension:0.3}]},
-    options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{display:true}, y:{display:true}}}
-  });
 }
 
 function renderNews(list){
